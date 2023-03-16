@@ -39,29 +39,38 @@ public class EnrichController {
             method = RequestMethod.POST
     )
     @ResponseBody
-    public ResponseEntity<StreamingResponseBody> enrichTradeCsv(
+    public ResponseEntity<StreamingResponseBody> enrichTradeCsvAsync(
             HttpServletRequest request
     ) {
 
+        Charset charset = Charset.forName(request.getCharacterEncoding());
         try (
-                InputStreamReader csvReader = new InputStreamReader(request.getInputStream(), request.getCharacterEncoding())
+                InputStreamReader csvReader = new InputStreamReader(request.getInputStream(), charset)
         ) {
-            //enrich service first reads the header to validate it and then returns streaming interface
-            StreamingResponse streamingResponse = enrichService.enrichCsvAsStream(csvReader, tradeCsvModel, productNameEnrichFieldMapper);
+            //enrich service first reads the header to validates it
+            StreamingResponse streamingResponse = enrichService.enrichCsvAsStreamingReponseAsync(csvReader, tradeCsvModel, productNameEnrichFieldMapper);
 
-            Charset charset = Charset.forName(request.getCharacterEncoding());
+            //after initial validations, start streaming response
             return ResponseEntity
                     .ok()
                     .contentType(MediaTypeExt.TEXT_CSV.forCharset(charset))
-                    .body(outputStream -> streamingResponse.writeTo(outputStream, charset));
+                    .body(outputStream -> {
+                        try {
+                            streamingResponse.writeTo(outputStream, charset);
+                        } catch (IOException exception) {
+                            //report an error, because we cannot do anything else, http protocol doesn't allow to report error while streaming
+                            logger.error(String.format("Error streaming enriched trade csv: %s", exception.getMessage()), exception);
+                            throw exception;
+                        }
+                    });
         } catch (CsvException e) {
             //reportable error
             logger.error("Error enriching trade csv (bad request)", e);
-            return ResponseEntity.badRequest().body(outputStream -> outputStream.write(e.getMessage().getBytes()));
+            return ResponseEntity.badRequest().body(outputStream -> outputStream.write(e.getMessage().getBytes(charset)));
         } catch (IOException e) {
             //internal error
             logger.error("Error enriching trade csv (internal server error)", e);
-            return ResponseEntity.internalServerError().body(outputStream -> outputStream.write("Internal Server Error".getBytes()));
+            return ResponseEntity.internalServerError().body(outputStream -> outputStream.write("Internal Server Error".getBytes(charset)));
         }
     }
 

@@ -24,7 +24,7 @@ public class EnrichService {
 
     final static private Logger logger = LoggerFactory.getLogger(EnrichService.class);
 
-    public StreamingResponse enrichCsvAsStream(
+    public StreamingResponse enrichCsvAsStreamingReponseAsync(
             Reader csvReader,
             CsvModel csvModel,
             EnrichFieldMapper enrichFieldMapper
@@ -32,6 +32,8 @@ public class EnrichService {
 
         ICsvMapReader inputMapReader    = null;
         try {
+            // --- READ AND VALIDATE HEADERS BEFORE RETURNING STREAMING RESPONSE ---
+
             //input map reader remains unclosed after function exit
             inputMapReader = new CsvMapReader(csvReader, CsvPreference.STANDARD_PREFERENCE);
 
@@ -49,8 +51,12 @@ public class EnrichService {
             final String[] outputHeaders = Arrays.copyOf(inputHeaders, inputHeaders.length);
             outputHeaders[ArrayUtils.indexOf(outputHeaders, inputFieldName)] = outputFieldName;
 
+
+            // --- RETURN STREAMING RESPONSE ---
+
+            //NOTE: this is not a pure function as we need unclosed inputMapReader to continue streaming
             final ICsvMapReader inputMapReaderFinal   = inputMapReader; //final handle for streaming
-            return (outputStream, characterEncoding) -> {
+            return (outputStream, characterEncoding) -> {   //return StreamingResponse
                 try (
                         Writer csvWriter = new OutputStreamWriter(outputStream, characterEncoding);
                         ICsvMapWriter outputMapWriter = new CsvMapWriter(csvWriter, CsvPreference.STANDARD_PREFERENCE)
@@ -78,8 +84,8 @@ public class EnrichService {
                         final Object inputFileValue = inputValuesMap.get(inputFieldName);
                         final Optional<String> outputFieldValueOption = enrichFieldMapper.findOutputValueById(Objects.toString(inputFileValue));
 
-                        //default value if missing
-                        final Object outputFieldValue = outputFieldValueOption.isPresent() ? outputFieldValueOption.get() : enrichFieldMapper.defaultValue();   //orElseGet doesn't support supplier throwing an exception
+                        //default value if missing (orElseGet doesn't support exceptions thrown by default-value supplier)
+                        final Object outputFieldValue = outputFieldValueOption.isPresent() ? outputFieldValueOption.get() : enrichFieldMapper.defaultValue();
 
                         //work on writable copy
                         Map<String, Object> outputValuesMap = new HashMap<>(inputValuesMap);
@@ -90,16 +96,12 @@ public class EnrichService {
 
                         outputMapWriter.write(outputValuesMap, outputHeaders);
                     }
-                } catch (Exception exception) {
+                } finally {
                     IOUtils.closeQuietly(inputMapReaderFinal);
-
-                    //close, because we cannot do anything else, http protocol doesn't allow to report error while streaming
-                    logger.error(String.format("Error streaming enriched csv: %s", exception.getMessage()), exception);
                 }
             };
-        } catch (IOException | CsvException exception) {
+        } finally {
             IOUtils.closeQuietly(inputMapReader);
-            throw exception;
         }
     }
 

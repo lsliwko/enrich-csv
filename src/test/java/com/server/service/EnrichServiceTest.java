@@ -119,7 +119,7 @@ public class EnrichServiceTest {
         try (
                 Reader reader = new InputStreamReader(new ByteArrayInputStream(inputCsv.getBytes()), StandardCharsets.UTF_8);
         ) {
-            StreamingResponse streamingResponse = enrichService.enrichCsvAsStream(reader, tradeCsvModel, testEnrichFieldMapper);
+            StreamingResponse streamingResponse = enrichService.enrichCsvAsStreamingReponseAsync(reader, tradeCsvModel, testEnrichFieldMapper);
             streamingResponse.writeTo(outputStream, StandardCharsets.UTF_8);
         }
         return outputStream.toString();

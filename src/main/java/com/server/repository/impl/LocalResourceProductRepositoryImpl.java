@@ -21,9 +21,9 @@ import java.util.Map;
 import java.util.Optional;
 
 @Component
-public class LocalProductRepositoryImpl implements ProductRepository {
+public class LocalResourceProductRepositoryImpl implements ProductRepository {
 
-    final static private Logger logger = LoggerFactory.getLogger(LocalProductRepositoryImpl.class);
+    final static private Logger logger = LoggerFactory.getLogger(LocalResourceProductRepositoryImpl.class);
 
     @Value("classpath:product.csv")
     private Resource productCsvResource;
