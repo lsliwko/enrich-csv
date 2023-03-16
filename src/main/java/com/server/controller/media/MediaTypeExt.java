@@ -8,7 +8,7 @@ public class MediaTypeExt extends MediaType {
 
     //Spring doesn't provide text/csv in MediaType
     public static final MediaTypeExt TEXT_CSV   =  new MediaTypeExt("text","csv");
-    public static final String TEXT_CSV_VALUE   = "text/csv";
+    public static final String TEXT_CSV_VALUE   = TEXT_CSV.toString();
 
     public MediaTypeExt(String type, String subtype) {
         super(type, subtype);
