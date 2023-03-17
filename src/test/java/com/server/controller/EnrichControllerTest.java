@@ -9,13 +9,12 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.retry.support.RetryTemplate;
-import org.springframework.test.annotation.DirtiesContext;
 
 import javax.servlet.http.HttpServletResponse;
 
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +40,7 @@ public class EnrichControllerTest {
                 "20160101,2,EUR,20.1\n" +
                 "20160101,3,EUR,30.34\n" +
                 "20160101,11,EUR,35.34\n",
-                TEXT_CSV);
+                Optional.of(TEXT_CSV));
 
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getBody()).isEqualToIgnoringNewLines(
@@ -61,7 +60,7 @@ public class EnrichControllerTest {
                 "20160101,2,EUR,20.1\n" +
                 "01012016,3,EUR,30.34\n" +
                 "20160101,11,EUR,35.34\n",
-                TEXT_CSV);
+                Optional.of(TEXT_CSV));
 
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getBody()).isEqualToIgnoringNewLines(
@@ -77,7 +76,7 @@ public class EnrichControllerTest {
         ResponseEntity<String> response = execPostApiV1Enrich(
                 "date,xxx,currency,price\n" +
                 "20160101,1,EUR,10.0\n",
-                TEXT_CSV);
+                Optional.of(TEXT_CSV));
 
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getBody()).isEqualToIgnoringNewLines("Input csv doesn't contain 'product_id'");
@@ -85,28 +84,28 @@ public class EnrichControllerTest {
 
     @Test
     public void testApiV1EnrichDisallowNoMediaType() throws Exception {
-        ResponseEntity<String> response = execPostApiV1Enrich("", null);
+        ResponseEntity<String> response = execPostApiV1Enrich("", Optional.empty());
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
     }
 
     @Test
     public void testApiV1EnrichDisallowTextPlainMediaType() {
-        ResponseEntity<String> response = execPostApiV1Enrich("", MediaType.TEXT_PLAIN);
+        ResponseEntity<String> response = execPostApiV1Enrich("", Optional.of(MediaType.TEXT_PLAIN));
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
     }
 
-    private ResponseEntity<String> execPostApiV1Enrich(String body, MediaType mediaType) {
+    private ResponseEntity<String> execPostApiV1Enrich(String body, Optional<MediaType> mediaTypeOptional) {
 
         HttpHeaders headers = new HttpHeaders();
-
-        if (mediaType!=null) {
+        mediaTypeOptional.ifPresent(mediaType -> {
             headers.setContentType(mediaType);
             headers.setAccept(Collections.singletonList(mediaType));
-        }
+        });
 
         HttpEntity<String> request = new HttpEntity<>(body, headers);
 
-        ResponseEntity<String> response = retryTemplate.execute( arg0 ->
+        //we are testing multithreaded servlet, occasionally rest call might fail
+        ResponseEntity<String> response = retryTemplate.execute( retryContext ->
                 restTemplate.postForEntity(
                     "http://localhost:" + port + "/api/v1/enrich",
                     request,

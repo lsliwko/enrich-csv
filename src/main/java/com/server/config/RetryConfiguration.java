@@ -1,26 +1,27 @@
 package com.server.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.annotation.EnableRetry;
-import org.springframework.retry.backoff.FixedBackOffPolicy;
-import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 
 @Configuration
 @EnableRetry
 public class RetryConfiguration {
 
+    @Value("${request.retry.max-attempts:5}")
+    private int requestRetryMaxAttempts;
+
+    @Value("${request.retry.backoff:1000}")
+    private int requestRetryBackoff;
+
     @Bean
     public RetryTemplate retryTemplate() {
-        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
-        retryPolicy.setMaxAttempts(4);
-        FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
-        backOffPolicy.setBackOffPeriod(3000);
-        RetryTemplate template = new RetryTemplate();
-        template.setRetryPolicy(retryPolicy);
-        template.setBackOffPolicy(backOffPolicy);
-        return template;
+        return RetryTemplate.builder()
+                .maxAttempts(requestRetryMaxAttempts)
+                .fixedBackoff(requestRetryBackoff)
+                .build();
     }
 
 }
