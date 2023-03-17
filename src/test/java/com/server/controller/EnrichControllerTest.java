@@ -106,7 +106,7 @@ public class EnrichControllerTest {
 
         //we are testing multithreaded servlet, occasionally rest call might fail
         ResponseEntity<String> response = retryTemplate.execute( retryContext ->
-                restTemplate.postForEntity(
+            restTemplate.postForEntity(
                     "http://localhost:" + port + "/api/v1/enrich",
                     request,
                     String.class)
