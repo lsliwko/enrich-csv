@@ -100,8 +100,10 @@ public class EnrichService {
                     IOUtils.closeQuietly(inputMapReaderFinal);
                 }
             };
-        } finally {
+        } catch (IOException | CsvException exception) {
+            //close only on exception
             IOUtils.closeQuietly(inputMapReader);
+            throw exception;
         }
     }
 
