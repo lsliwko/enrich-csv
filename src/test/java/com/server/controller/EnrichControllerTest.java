@@ -9,6 +9,9 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -27,6 +30,8 @@ public class EnrichControllerTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private RetryTemplate retryTemplate;
 
     @Test
     public void testApiV1EnrichHappyPath() throws Exception {
@@ -41,10 +46,10 @@ public class EnrichControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getBody()).isEqualToIgnoringNewLines(
                 "date,product_name,currency,price\n" +
-                        "20160101,Treasury Bills Domestic,EUR,10.0\n" +
-                        "20160101,Corporate Bonds Domestic,EUR,20.1\n" +
-                        "20160101,REPO Domestic,EUR,30.34\n" +
-                        "20160101,Missing Product Name,EUR,35.34\n"
+                "20160101,Treasury Bills Domestic,EUR,10.0\n" +
+                "20160101,Corporate Bonds Domestic,EUR,20.1\n" +
+                "20160101,REPO Domestic,EUR,30.34\n" +
+                "20160101,Missing Product Name,EUR,35.34\n"
         );
     }
 
@@ -52,18 +57,18 @@ public class EnrichControllerTest {
     public void testApiV1EnrichDiscardRowInvalidDate() throws Exception {
         ResponseEntity<String> response = execPostApiV1Enrich(
                 "date,product_id,currency,price\n" +
-                        "20160101,1,EUR,10.0\n" +
-                        "20160101,2,EUR,20.1\n" +
-                        "01012016,3,EUR,30.34\n" +
-                        "20160101,11,EUR,35.34\n",
+                "20160101,1,EUR,10.0\n" +
+                "20160101,2,EUR,20.1\n" +
+                "01012016,3,EUR,30.34\n" +
+                "20160101,11,EUR,35.34\n",
                 TEXT_CSV);
 
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getBody()).isEqualToIgnoringNewLines(
                 "date,product_name,currency,price\n" +
-                        "20160101,Treasury Bills Domestic,EUR,10.0\n" +
-                        "20160101,Corporate Bonds Domestic,EUR,20.1\n" +
-                        "20160101,Missing Product Name,EUR,35.34\n"
+                "20160101,Treasury Bills Domestic,EUR,10.0\n" +
+                "20160101,Corporate Bonds Domestic,EUR,20.1\n" +
+                "20160101,Missing Product Name,EUR,35.34\n"
         );
     }
 
@@ -71,10 +76,11 @@ public class EnrichControllerTest {
     public void testApiV1EnrichDiscardRowInvalidHeader() throws Exception {
         ResponseEntity<String> response = execPostApiV1Enrich(
                 "date,xxx,currency,price\n" +
-                        "20160101,1,EUR,10.0\n",
+                "20160101,1,EUR,10.0\n",
                 TEXT_CSV);
 
         assertThat(response.getStatusCode().value()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getBody()).isEqualToIgnoringNewLines("Input csv doesn't contain 'product_id'");
     }
 
     @Test
@@ -99,10 +105,13 @@ public class EnrichControllerTest {
         }
 
         HttpEntity<String> request = new HttpEntity<>(body, headers);
-        ResponseEntity<String> response = this.restTemplate.postForEntity(
-                "http://localhost:" + port + "/api/v1/enrich",
-                request,
-                String.class);
+
+        ResponseEntity<String> response = retryTemplate.execute( arg0 ->
+                restTemplate.postForEntity(
+                    "http://localhost:" + port + "/api/v1/enrich",
+                    request,
+                    String.class)
+        );
 
         return response;
     }
