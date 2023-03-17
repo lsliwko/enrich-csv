@@ -101,7 +101,7 @@ public class EnrichService {
                 }
             };
         } catch (IOException | CsvException exception) {
-            //close only on exception
+            //close only on header error (before streaming)
             IOUtils.closeQuietly(inputMapReader);
             throw exception;
         }
