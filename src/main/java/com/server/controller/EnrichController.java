@@ -46,17 +46,17 @@ public class EnrichController {
             HttpServletRequest request
     ) {
 
-        //NOTE: The thumb rule in I/O is, if you did not open/create the input stream source yourself, then you do not need to close it as well
-
         AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //final wrapper for lambdas
         try {
             referenceCharset.setPlain(Charset.forName(request.getCharacterEncoding()));  //throws UnsupportedEncodingException
+
+            //NOTE: request's input-stream shouldn't be closed by servlet
             InputStreamReader csvReader = new InputStreamReader(request.getInputStream(), referenceCharset.get());
 
-            //enrich service first reads the header to validates it
+            //first validate header
             StreamingResponse streamingResponse = enrichService.enrichCsvAsStreamingResponse(csvReader, tradeCsvModel, productNameEnrichFieldMapper);
 
-            //after initial validations, start streaming response
+            //after validations, start streaming response
             return ResponseEntity
                     .ok()
                     .contentType(MediaTypeExt.TEXT_CSV.forCharset(referenceCharset.get()))
