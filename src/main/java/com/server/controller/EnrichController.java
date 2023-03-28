@@ -49,7 +49,7 @@ public class EnrichController {
 
         AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //we need to provide default charset for error handling (and also final val for lambdas)
         try {
-            referenceCharset.setPlain(Charset.forName(request.getCharacterEncoding()));  //throws UnsupportedEncodingException
+            referenceCharset.setPlain(Charset.forName(request.getCharacterEncoding()));  //supports: text/csv; charset=utf-8, throws UnsupportedEncodingException
 
             //NOTE: request's input-stream shouldn't be closed here (it's managed by Spring)
             InputStreamReader csvReader = new InputStreamReader(request.getInputStream(), referenceCharset.get());
@@ -64,7 +64,7 @@ public class EnrichController {
                     .body(outputStream -> {
                         try {
                             streamingResponse.writeTo(outputStream, referenceCharset.get());
-                            //TODO add end-of-data marker (or checksum) to notify requester that all data has been sent (in case connection has been cut or processign failed)
+                            //TODO add end-of-data marker (or checksum) to notify requester that all data has been sent (in case connection has been cut or processing failed)
                         } catch (IOException exception) {
                             //report an error, because we cannot do anything else, http protocol doesn't allow to report error while streaming
                             logger.error(String.format("Error streaming enriched trade csv: %s", exception.getMessage()), exception);
