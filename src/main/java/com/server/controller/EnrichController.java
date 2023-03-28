@@ -46,7 +46,7 @@ public class EnrichController {
             HttpServletRequest request
     ) {
 
-        AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //final wrapper for lambdas
+        AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //we need to provide default charset for error handling
         try {
             referenceCharset.setPlain(Charset.forName(request.getCharacterEncoding()));  //throws UnsupportedEncodingException
 
