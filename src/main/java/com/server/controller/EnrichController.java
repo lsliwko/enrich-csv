@@ -68,10 +68,7 @@ public class EnrichController {
                         } catch (IOException exception) {
                             //report an error, because we cannot do anything else, http protocol doesn't allow to report error while streaming
                             logger.error(String.format("Error streaming enriched trade csv: %s", exception.getMessage()), exception);
-                            //TODO add error marker to notify requester that there was streaming error
                             throw exception;
-                        } finally {
-                            IOUtils.closeQuietly(outputStream);
                         }
                     });
         } catch (CsvException | UnsupportedEncodingException exception) {
