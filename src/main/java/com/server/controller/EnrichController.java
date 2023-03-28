@@ -6,6 +6,7 @@ import com.server.service.EnrichService;
 import com.server.service.mapper.ProductNameEnrichFieldMapper;
 import com.server.service.model.TradeCsvModel;
 import com.server.service.response.StreamingResponse;
+import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,11 +47,11 @@ public class EnrichController {
             HttpServletRequest request
     ) {
 
-        AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //we need to provide default charset for error handling
+        AtomicReference<Charset> referenceCharset   = new AtomicReference<>(StandardCharsets.UTF_8);    //we need to provide default charset for error handling (and also final val for lambdas)
         try {
             referenceCharset.setPlain(Charset.forName(request.getCharacterEncoding()));  //throws UnsupportedEncodingException
 
-            //NOTE: request's input-stream shouldn't be closed by servlet
+            //NOTE: request's input-stream shouldn't be closed here (it's managed by Spring)
             InputStreamReader csvReader = new InputStreamReader(request.getInputStream(), referenceCharset.get());
 
             //first validate header
@@ -63,14 +64,18 @@ public class EnrichController {
                     .body(outputStream -> {
                         try {
                             streamingResponse.writeTo(outputStream, referenceCharset.get());
+                            //TODO add end-of-data marker (or checksum) to notify requester that all data has been sent (in case connection has been cut or processign failed)
                         } catch (IOException exception) {
                             //report an error, because we cannot do anything else, http protocol doesn't allow to report error while streaming
                             logger.error(String.format("Error streaming enriched trade csv: %s", exception.getMessage()), exception);
+                            //TODO add error marker to notify requester that there was streaming error
                             throw exception;
+                        } finally {
+                            IOUtils.closeQuietly(outputStream);
                         }
                     });
         } catch (CsvException | UnsupportedEncodingException exception) {
-            //reportable error
+            //reportable error (show error message)
             logger.error("Error enriching trade csv (bad request)", exception);
             return ResponseEntity.badRequest().body(outputStream ->
                     outputStream.write(exception.getMessage().getBytes(referenceCharset.get()))
